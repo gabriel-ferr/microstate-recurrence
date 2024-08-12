@@ -32,7 +32,7 @@ using CairoMakie
 using LinearAlgebra
 # ------------------------------------------------------------------
 #   Exports (functions that can be used in an external environment.)
-export RecurrenceMatrix
+export RecurrenceMatrix, RecurrencePlot
 export Θ, StdRrc
 # ------------------------------------------------------------------
 """
