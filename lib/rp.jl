@@ -58,6 +58,21 @@ function RecurrenceMatrix(x::Array{Float64,2}, ε::Any; rrc=StdRrc)
 end
 # ------------------------------------------------------------------
 """
+        RecurrencePlot(RecurrenceMatrix; xlabel="Time", ylabel="Time")
+
+    Uses the CairoMakie to plot a RecurrencePlot from a RecurrenceMatrix.
+"""
+function RecurrencePlot(rp; xlabel="Time", ylabel="Time")
+    fig = Figure()
+    ax = Axis(fig[1, 1])
+    ax.xlabel = xlabel
+    ax.ylabel = ylabel
+    heatmap!(ax, rp, colormap=:binary)
+
+    return fig
+end
+# ------------------------------------------------------------------
+"""
         StdRrc(x::Float64, y::Float64, ε::Float64)
 
     Calculate the recurrence between two points in an n-dim space 
