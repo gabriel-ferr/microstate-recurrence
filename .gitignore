@@ -1,0 +1,6 @@
+#   Ignore images (only png) ...
+*.png
+/*.png
+#   Ignore data files ...
+*.dat
+/*.dat
