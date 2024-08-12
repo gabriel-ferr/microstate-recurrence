@@ -33,6 +33,7 @@ using LinearAlgebra
 # ------------------------------------------------------------------
 #   Exports (functions that can be used in an external environment.)
 export RecurrenceMatrix
+export Θ, StdRrc
 # ------------------------------------------------------------------
 """
         RecurrenceMatrix(x[, dims], ε::Any (1); rrc = StdRrc)
@@ -43,7 +44,7 @@ export RecurrenceMatrix
     Use a user-defined recurrence function to compute and return a
     recurrence matrix from a time series.
 """
-function RecurrenceMatrix(x::Array{Float64,2}, ε::Any; rrc='a')
+function RecurrenceMatrix(x::Array{Float64,2}, ε::Any; rrc=StdRrc)
     rp_size = size(x, 1)
     rp = zeros(Int, rp_size, rp_size)
 
@@ -52,6 +53,29 @@ function RecurrenceMatrix(x::Array{Float64,2}, ε::Any; rrc='a')
             rp[i, j] = rrc(x[i, :], x[j, :], ε)
         end
     end
+
+    return Symmetric(rp)
+end
+# ------------------------------------------------------------------
+"""
+        StdRrc(x::Float64, y::Float64, ε::Float64)
+
+    Calculate the recurrence between two points in an n-dim space 
+    using: r = Θ(ε - |x - y|)
+"""
+function StdRrc(x::Float64, y::Float64, ε::Float64)
+    d = ε - euclidean(x, y)
+    return Θ(d)
+end
+# ------------------------------------------------------------------
+"""
+    Function heaviside.
+"""
+function Θ(x::Float64)
+    if (x >= 0)
+        return 1
+    end
+    return 0
 end
 # ------------------------------------------------------------------
 end
