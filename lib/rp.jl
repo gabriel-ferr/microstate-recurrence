@@ -1,5 +1,6 @@
 #
 #       By Gabriel Ferreira
+#       Orientation: Prof. Thiago de Lima Prado
 #       UFPR - 2024
 #
 #       This script works like a library that calculates a
@@ -32,17 +33,23 @@ using CairoMakie
 using LinearAlgebra
 # ------------------------------------------------------------------
 #   Exports (functions that can be used in an external environment.)
-export RecurrenceMatrix, RecurrencePlot
-export Θ, StdRrc
+export Θ
+export StdRrc
+export CrrRrc
+export Entropy
+export RecurrencePlot
+export GetMicrostates
+export GetPowerVector
+export RecurrenceMatrix
 # ------------------------------------------------------------------
 """
-        RecurrenceMatrix(x[, dims], ε::Any (1); rrc = StdRrc)
+    RecurrenceMatrix(x[, dims], ε::Any (1); rrc = StdRrc)
     
-    (1) - type of variable associated with the threshold of the 
-    recurrence function (rrc).
+(1) - type of variable associated with the threshold of the 
+recurrence function (rrc).
 
-    Use a user-defined recurrence function to compute and return a
-    recurrence matrix from a time series.
+Use a user-defined recurrence function to compute and return a
+recurrence matrix from a time series.
 """
 function RecurrenceMatrix(x::Array{Float64,2}, ε::Any; rrc=StdRrc)
     rp_size = size(x, 1)
@@ -73,14 +80,165 @@ function RecurrencePlot(rp; xlabel="Time", ylabel="Time")
 end
 # ------------------------------------------------------------------
 """
-        StdRrc(x::Float64, y::Float64, ε::Float64)
+    GetMicrostates(RecurrenceMatrix, n::Int; powvec::Vector = GetPowerVector(n::Int) (1))
 
-    Calculate the recurrence between two points in an n-dim space 
-    using: r = Θ(ε - |x - y|)
+(1) If you are going to run this function in a loop, it is recommended
+that you give it a pre-instantiated power vector (powvec), use
+function GetPowerVector(n::Int) to do it.
+
+This function calculates the microstates of form nxn from a recurrence
+matrix given to it and returns the probability of each microstate 
+being located.
+
 """
-function StdRrc(x::Float64, y::Float64, ε::Float64)
+function GetMicrostates(rp, n::Int; powvec::Vector=GetPowerVector(n))
+    #   It uses a dict to save memory when we don't have all the
+    #   microstates in our system.
+    R = Dict{Int,Float64}()
+    # --------------------------------------------------------------
+    p = 0
+    add = 0
+    a_bin = 0
+    count_samples = 0
+    rp_size = size(rp)
+    # --------------------------------------------------------------
+    for j = 1:n:rp_size[2]-(n-1)
+        for i = 1:n:rp_size[1]-(n-1)
+            add = 0
+            p = 0
+            for x = 1:n
+                for y = 1:n
+                    a_bin = rp[i+x-1, j+y-1] == true ? 1 : 0
+                    add = add + a_bin * powvec[y+((x-1)*n)]
+                end
+            end
+            count_samples += 1
+            p = Int64(add) + 1
+            R[p] = get(R, p, 0) + 1
+        end
+    end
+    # --------------------------------------------------------------
+    for r in keys(R)
+        R[r] /= (1.0 * count_samples)
+    end
+    # --------------------------------------------------------------
+    return R
+end
+# ------------------------------------------------------------------
+"""
+    GetMicrostates(RecurrenceMatrix, n::Int, samples::Tuple(n_rows::Int, n_samples::Int); powvec = GetPowerVector(n::Int) (1))
+
+(1) If you are going to run this function in a loop, it is recommended
+that you give it a pre-instantiated power vector (powvec), use
+function GetPowerVector(n::Int) to do it.
+
+**  I haven't tested this function yet >.<
+
+This function calculates the microstates of form nxn from a recurrence
+matrix given to it and returns the probability of each microstate 
+being located.
+
+Sampling: it uses a sampling system that gets a unique collection of
+indeces for each row and uses it to calculate the microstate 
+probabilities. Note that n_rows must be less than size(p, 1) - (n - 1)
+and the same thing occur with n_samples but with size(p, 2) - (n - 1).
+
+"""
+function GetMicrostates(rp, n::Int, samples; powvec::GetPowerVector(n))
+    if (samples[1] > size(rp, 1) - (n - 1))
+        throw("The number of n_rows exceeds the maximum.")
+    end
+    if (samples[2] > size(rp, 2) - (n - 1))
+        throw("The number of n_samples exceeds the maximum.")
+    end
+    # --------------------------------------------------------------
+    #   It uses a dict to save memory when we don't have all the
+    #   microstates in our system.
+    R = Dict{Int,Float64}()
+    # --------------------------------------------------------------
+    p = 0
+    add = 0
+    a_bin = 0
+    rp_size = size(rp)
+    index_x = sample(1:rp_size[1]-(n-1), samples[1])
+    index_y = sample(1:rp_size[2]-(n-1), samples[2])
+    # --------------------------------------------------------------
+    for i in index_x
+        #   For each row, take one sample.
+        index_y = sample(1:rp_size[2]-(n-1), sample[2])
+        for j in index_y
+            add = 0
+            p = 0
+            for x = 1:n
+                for y = 1:n
+                    a_bin = rp[i+x-1, j+y-1] == true ? 1 : 0
+                    add = add + a_bin * powvec[y+((x-1)*n)]
+                end
+            end
+            p = Int64(add) + 1
+            R[p] = get(R, p, 0) + 1
+        end
+    end
+    # --------------------------------------------------------------
+    for r in keys(R)
+        R[r] /= (1.0 * (sample[1] * sample[2]))
+    end
+    # --------------------------------------------------------------
+    return R
+end
+# ------------------------------------------------------------------
+"""
+    Entropy(probs::Dict{Int, Float64})
+
+It calculates the entropy from the microstate probabilities using
+Shannon's entropy.
+"""
+function Entropy(probs::Dict{Int,Float64})
+    S = 0
+    for r in keys(probs)
+        if (probs[r] > 0)
+            S += (-probs[r] * (log(probs[r])))
+        end
+    end
+    return S
+end
+# ------------------------------------------------------------------
+"""
+    GetPowerVector(n::Int)
+
+To calculate the microstates we need a power vector to write them as
+binary numbers and use as an index to our dict. So this function
+creates a vector where each element is a binary base 2^x where x
+goes from 0 to (n * n) - 1.
+"""
+function GetPowerVector(n::Int)
+    powvec = zeros(Int64, (n * n))
+    for i in eachindex(powvec)
+        powvec[i] = Int64(2^(i - 1))
+    end
+    return powvec
+end
+# ------------------------------------------------------------------
+"""
+    StdRrc(x::Vector{Float64}, y::Vector{Float64}, ε::Float64)
+
+Calculate the recurrence between two points in an n-dim space 
+using: r = Θ(ε - |x - y|)
+"""
+function StdRrc(x, y, ε::Float64)
     d = ε - euclidean(x, y)
     return Θ(d)
+end
+# ------------------------------------------------------------------
+"""
+    CrrRrc(x::Vector{Float64}, y::Vector{Float64}, ε::Tuple(ε_min::Float64, ε_max::Float64))
+
+Calculate the recurrence between two points in an n-dim space
+using: r = Θ(ε_max - |x - y|) * Θ(|x - y| - ε_min)
+"""
+function CrrRrc(x, y, ε)
+    d = euclidean(x, y)
+    return Θ(ε[2] - d) * Θ(d - ε[1])
 end
 # ------------------------------------------------------------------
 """
