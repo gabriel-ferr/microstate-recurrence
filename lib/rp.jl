@@ -51,7 +51,7 @@ recurrence function (rrc).
 Use a user-defined recurrence function to compute and return a
 recurrence matrix from a time series.
 """
-function RecurrenceMatrix(x::Array{Float64,2}, ε::Any; rrc=StdRrc)
+function RecurrenceMatrix(x, ε::Any; rrc=StdRrc)
     rp_size = size(x, 1)
     rp = zeros(Int, rp_size, rp_size)
 
@@ -249,6 +249,58 @@ function Θ(x::Float64)
         return 1
     end
     return 0
+end
+# ------------------------------------------------------------------
+"""
+    MaximizeStdEntropy(x::Array{Float64, 3}, n::Int; samples::Int = 1000, ε_min::Float64 = 0, ε_max::Float64 = 1)
+
+Compute the maximum entropy for a time serie when we use the Standard Recurrence.
+"""
+function MaximizeStdEntropy(x, n::Int; samples=1000, ε_min=0, ε_max=1)
+    ε = range(ε_min, ε_max, samples)
+    smat = zeros(Float64, samples)
+    x_size = size(x)
+    powvec = GetPowerVector(n)
+    ε_res = zeros(Float64, x_size[3])
+    # --------------------------------------------------------------
+    for s in x_size[3]
+        smat = zeros(Float64, samples)
+        Threads.@threads for i in eachindex(ε)
+            rp = RecurrenceMatrix(x[:, :, s], ε[i]; rrc=StdRrc)
+            smat[i] = Entropy(GetMicrostates(rp, n; powvec=powvec))
+        end
+        ε_res[s] = ε[findmax(smat)[2]]
+    end
+    # --------------------------------------------------------------
+    return mean(ε_res)
+end
+# ------------------------------------------------------------------
+"""
+    MaximizeStdEntropy(x::Array{Float64, 3}, n::Int; samples::Int = 1000, ε_min::Float64 = 0, ε_max::Float64 = 1)
+
+Compute the maximum entropy for a time serie when we use the Corridor Recurrence.
+"""
+function MaximizeCrrEntropy(x, n::Int; samples=1000, ε_min=0, ε_max=1)
+    ε = range(ε_min, ε_max, samples)
+    smat = zeros(Float64, samples, samples)
+    powvec = GetPowVector(n)
+    x_size = size(x)
+    ε_res = zeros(Float64, x_size[3], 2)
+    # --------------------------------------------------------------
+    for s in x_size[3]
+        smat = zeros(Float64, samples, samples)
+        Threads.@threads for i in eachindex(ε)
+            for j = 1:(i-1)
+                rp = RecurrenceMatrix(x[:, :, s], (ε[j], ε[i]); rrc=CrrRrc)
+                smat[j, i] = Entropy(GetMicrostates(rp, n; powvec=powvec))
+            end
+        end
+        mx = findmax(smat)[2]
+        ε_res[s, 1] = ε[mx[1]]
+        ε_res[s, 2] = ε[mx[2]]
+    end
+    # --------------------------------------------------------------
+    return (mean(ε_res[:, 1]), mean(ε_res[:, 2]))
 end
 # ------------------------------------------------------------------
 end
