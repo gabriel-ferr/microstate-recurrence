@@ -144,7 +144,7 @@ probabilities. Note that n_rows must be less than size(p, 1) - (n - 1)
 and the same thing occur with n_samples but with size(p, 2) - (n - 1).
 
 """
-function GetMicrostates(rp, n::Int, samples; powvec::GetPowerVector(n))
+function GetMicrostates(rp, n::Int, samples; powvec=GetPowerVector(n))
     if (samples[1] > size(rp, 1) - (n - 1))
         throw("The number of n_rows exceeds the maximum.")
     end
