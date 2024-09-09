@@ -4,3 +4,11 @@
 #   Ignore data files ...
 *.dat
 /*.dat
+
+# --- Folders to ignore
+output/*
+tmp/*
+backup/*
+
+# ---- DS Store para o mac
+.DS_Store
